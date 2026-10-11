@@ -1,0 +1,58 @@
+import { Geist, Geist_Mono, Reem_Kufi, Hind_Siliguri } from "next/font/google";
+import "./globals.css";
+import Providers from "@/components/Providers/providers";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// আরবি ফন্ট (variable প্রপার্টি যুক্ত করা হয়েছে)
+const reemKufi = Reem_Kufi({
+  variable: "--font-reem-kufi",
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+// বাংলা ফন্ট
+const hindSiliguri = Hind_Siliguri({
+  variable: "--font-hind-siliguri",
+  subsets: ["bengali"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+export const metadata = {
+  title: "AL-MADINA ISLAMIC ACADEMY",
+  description: "Welcome to our website",
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  manifest: "/site.webmanifest",
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      className={`${geistSans.variable} ${geistMono.variable} ${reemKufi.variable} ${hindSiliguri.variable} h-full antialiased`}
+    >
+      <body className={`${hindSiliguri.className} min-h-full flex flex-col`}>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}

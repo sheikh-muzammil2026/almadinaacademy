@@ -1,0 +1,66 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
+import TopHeaderTicker from "./TopHeaderTicker";
+
+export default function TopHeader() {
+  const { t } = useLanguage();
+
+  return (
+    <div className="w-full print:hidden">
+      <div className="w-full bg-gradient-to-r from-emerald-900 via-emerald-850 to-emerald-900 text-white py-3 px-4 md:px-6 border-b border-amber-500/30 relative overflow-hidden transition-colors duration-300 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:border-emerald-800">
+
+
+
+      {/* মেইন কন্টেইনার */}
+      <div className="max-w-7xl mx-auto flex flex-row items-center relative z-10 gap-4 md:gap-6">
+
+        {/* লোগো সেকশন:  */}
+        <div className="flex-shrink-0 w-[82px] h-[82px] md:w-[130px] md:h-[130px] relative rounded-full overflow-hidden p-[2px] bg-transparent">
+          <Link href="/" className="relative block w-full h-full">
+            <Image
+              src="/madrasah-logo.jpeg"
+              alt="Al-Madina Islamic Academy Logo"
+              fill
+              sizes="(max-width: 768px) 65px, 90px"
+              className="object-cover scale-[1.05] rounded-full"
+              priority
+            />
+          </Link>
+        </div>
+
+        {/* নাম ও স্লোগান কন্টেইনার: ফুল উইডথ দখল করবে */}
+        <div className="flex-1 flex flex-col space-y-1 w-full text-center">
+
+          {/* ১. আরবি নাম: ة এবং لا এর জন্য ফালব্যাক ফন্ট ব্যবহার করা হয়েছে */}
+          <p className="text-[18px] scale-x-130 md:text-3xl md:scale-x-235  kufi-custom text-emerald-200/90 tracking-wide dark:text-slate-400" dir="rtl" lang="ar">
+            أكاديمية المدينة الإسلامية
+          </p>
+
+          {/* ২. বাংলা নাম: ফন্ট সাইজ বড় করে রেগুলার এলাইনমেন্ট */}
+          <p className="text-[13px] md:text-[37px] font-bold text-emerald-50 tracking-normal dark:text-slate-200 leading-tight font-shalda">
+            আল-মদিনা ইসলামিক একাডেমি
+          </p>
+
+          {/* ৩. ইংরেজি নাম */}
+          <h1 className="text-[15px] md:text-[46px] font-black tracking-wide text-amber-400 dark:text-emerald-400 capitalize  leading-none font-britanic">
+            AL-MADINA ISLAMIC ACADEMY
+          </h1>
+
+          {/* ৪. স্লোগান: সম্পূর্ণ নতুন লাইনে এবং রাইট সাইডে পুশ করা হয়েছে */}
+          <div className="w-full flex justify-end pt-1 md:pt-1.5 border-t border-white/5">
+            <p className="text-[10px] md:text-sm font-medium tracking-widest text-amber-300/85 italic uppercase dark:text-emerald-300/70">
+              {t('header.slogan')}
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+      </div>
+      <TopHeaderTicker />
+    </div>
+  );
+}

@@ -1,0 +1,434 @@
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { TrendingUp, Plus, Trash2, Loader2, RefreshCw } from 'lucide-react';
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_SERVER_API ||
+  process.env.NEXT_PUBLIC_SERVER_URL ||
+  "http://localhost:5000";
+
+export default function IncomeEntry({
+  incomeForm,
+  setIncomeForm,
+  INCOME_HEADS,
+  loading,
+  onSubmit,
+  setActiveTab,
+  formatBanglaNumber,
+  isEditing = false
+}) {
+  const [dbCategories, setDbCategories] = useState([]);
+  const [isReceiptLoading, setIsReceiptLoading] = useState(false);
+  const prevDateRef = useRef(incomeForm.date);
+
+  // Load database categories
+  useEffect(() => {
+    const fetchDbCategories = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/finance/categories`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setDbCategories(data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching db categories:", err);
+      }
+    };
+    fetchDbCategories();
+  }, []);
+
+  // Merge static heads with DB categories
+  const mergedIncomeHeads = useMemo(() => {
+    const dbNames = dbCategories.map(c => c.name);
+    const staticNames = INCOME_HEADS.filter(h => !dbNames.includes(h));
+    return [...dbNames, ...staticNames];
+  }, [dbCategories, INCOME_HEADS]);
+
+  // Dedicated Auto Receipt ID Generator
+  const fetchNextReceiptNo = useCallback(async () => {
+    if (isEditing || !incomeForm.date) return;
+    const dateParts = incomeForm.date.split('-');
+    if (dateParts.length < 2) return;
+    const yy = dateParts[0].slice(-2);
+    const mm = dateParts[1];
+    const prefix = `INC-${mm}${yy}`;
+
+    try {
+      setIsReceiptLoading(true);
+      const res = await fetch(`${API_BASE_URL}/api/finance/next-receipt-no?date=${incomeForm.date}&type=income`);
+      const data = await res.json();
+      if (data.success && data.nextReceiptNo) {
+        setIncomeForm(prev => ({
+          ...prev,
+          receiptNo: data.nextReceiptNo
+        }));
+        return;
+      }
+      setIncomeForm(prev => ({ ...prev, receiptNo: `${prefix}0001` }));
+    } catch (err) {
+      console.error("Error generating dynamic Receipt ID:", err);
+      setIncomeForm(prev => ({ ...prev, receiptNo: `${prefix}0001` }));
+    } finally {
+      setIsReceiptLoading(false);
+    }
+  }, [incomeForm.date, isEditing, setIncomeForm]);
+
+  // Auto Receipt ID Generation on date change or initial/reset load
+  useEffect(() => {
+    if (isEditing) return;
+    const dateChanged = prevDateRef.current !== incomeForm.date;
+    prevDateRef.current = incomeForm.date;
+
+    if (!incomeForm.receiptNo || dateChanged) {
+      fetchNextReceiptNo();
+    }
+  }, [incomeForm.date, incomeForm.receiptNo, isEditing, fetchNextReceiptNo]);
+
+  // Debounced Student Auto-fill
+  useEffect(() => {
+    if (incomeForm.payerType !== 'student' || !incomeForm.studentId) return;
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/finance/students/${incomeForm.studentId}`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          setIncomeForm(prev => ({
+            ...prev,
+            studentName: data.data.name,
+            className: data.data.className
+          }));
+        }
+      } catch (err) {
+        console.error("Student auto-fill search error:", err);
+      }
+    }, 600);
+
+    return () => clearTimeout(delayDebounce);
+  }, [incomeForm.studentId, incomeForm.payerType, setIncomeForm]);
+
+  // Handlers for Items list
+  const handleAddRow = () => {
+    setIncomeForm({
+      ...incomeForm,
+      items: [...incomeForm.items, { head: mergedIncomeHeads[0] || INCOME_HEADS[0], amount: '' }]
+    });
+  };
+
+  const handleRemoveRow = (index) => {
+    const newItems = [...incomeForm.items];
+    newItems.splice(index, 1);
+    setIncomeForm({ ...incomeForm, items: newItems });
+  };
+
+  const handleRowChange = (index, field, value) => {
+    const newItems = [...incomeForm.items];
+    newItems[index][field] = value;
+    if (field === 'head') {
+      const found = dbCategories.find(c => c.name === value);
+      if (found && found.presetFee > 0) {
+        newItems[index]['amount'] = found.presetFee.toString();
+      }
+    }
+    setIncomeForm({ ...incomeForm, items: newItems });
+  };
+
+  const currentIncomeTotal = incomeForm.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  const finalTotal = Math.max(0, currentIncomeTotal - (parseFloat(incomeForm.discount) || 0));
+
+  return (
+    <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-emerald-900/10 shadow-xs p-4 sm:p-6 md:p-8 print:hidden">
+      <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
+        <div className="p-2.5 sm:p-3 bg-emerald-50 text-emerald-850 rounded-xl shrink-0">
+          <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />
+        </div>
+        <div>
+          <h2 className="text-base sm:text-lg font-bold text-emerald-955">আয় এন্ট্রি করুন (রসিদ ফরম)</h2>
+          <p className="text-xs text-slate-400 font-medium">মাদরাসার আয়ের খাত অনুযায়ী সরাসরি কালেকশন এন্ট্রি</p>
+        </div>
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-6">
+        {/* Metadata Fields */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-slate-650">রসিদ নম্বর</label>
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={fetchNextReceiptNo}
+                  disabled={isReceiptLoading}
+                  className="text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="রসিদ নম্বর রিফ্রেশ করুন"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isReceiptLoading ? 'animate-spin' : ''}`} />
+                  <span>নতুন কোড</span>
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder={isReceiptLoading ? "লোড হচ্ছে..." : "স্বয়ংক্রিয় তৈরি হবে"}
+                value={incomeForm.receiptNo}
+                readOnly
+                className="px-3 py-2.5 bg-slate-100/80 border border-slate-200 rounded-xl text-xs w-full focus:outline-none font-mono font-bold text-slate-700 cursor-not-allowed select-none"
+                required
+              />
+              {isReceiptLoading && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-3.5 h-3.5 text-emerald-700 animate-spin" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-650 block mb-1">পেমেন্ট মেথড</label>
+            <select
+              value={incomeForm.paymentMethod}
+              onChange={(e) => setIncomeForm({ ...incomeForm, paymentMethod: e.target.value })}
+              className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700"
+            >
+              <option value="Cash">নগদ / ক্যাশ</option>
+              <option value="Bank">ব্যাংক</option>
+              <option value="Cheque">চেক</option>
+              <option value="bKash">বিকাশ</option>
+              <option value="Nagad">নগদ মোবাইল ব্যাংকিং</option>
+              <option value="Rocket">রকেট</option>
+            </select>
+          </div>
+
+          {/* Donor vs Student Toggle */}
+          <div className="sm:col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <label className="text-xs font-bold text-slate-650 block mb-2">জমার ধরণ (Payer Type)</label>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 text-xs text-slate-700 font-bold cursor-pointer">
+                <input
+                  type="radio"
+                  name="payerType"
+                  value="donor"
+                  checked={incomeForm.payerType === 'donor'}
+                  onChange={() => setIncomeForm({
+                    ...incomeForm,
+                    payerType: 'donor',
+                    studentId: '',
+                    studentName: '',
+                    className: ''
+                  })}
+                  className="w-4 h-4 text-emerald-800 focus:ring-emerald-700 border-slate-300"
+                />
+                দাতা (Donor)
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-700 font-bold cursor-pointer">
+                <input
+                  type="radio"
+                  name="payerType"
+                  value="student"
+                  checked={incomeForm.payerType === 'student'}
+                  onChange={() => setIncomeForm({
+                    ...incomeForm,
+                    payerType: 'student',
+                    donorName: ''
+                  })}
+                  className="w-4 h-4 text-emerald-800 focus:ring-emerald-700 border-slate-300"
+                />
+                শিক্ষার্থী (Student)
+              </label>
+            </div>
+          </div>
+
+          {/* Conditional Fields based on selection */}
+          {incomeForm.payerType === 'donor' && (
+            <div className="sm:col-span-2">
+              <label className="text-xs font-bold text-slate-650 block mb-1">দাতার নাম</label>
+              <input
+                type="text"
+                placeholder="দাতার নাম লিখুন"
+                value={incomeForm.donorName || ''}
+                onChange={(e) => setIncomeForm({ ...incomeForm, donorName: e.target.value })}
+                className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700"
+                required
+              />
+            </div>
+          )}
+
+          {incomeForm.payerType === 'student' && (
+            <>
+              <div>
+                <label className="text-xs font-bold text-slate-650 block mb-1">শিক্ষার্থীর আইডি (Student ID)</label>
+                <input
+                  type="text"
+                  placeholder="শিক্ষার্থীর আইডি লিখুন"
+                  value={incomeForm.studentId || ''}
+                  onChange={(e) => setIncomeForm({ ...incomeForm, studentId: e.target.value })}
+                  className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700 font-mono font-bold"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-650 block mb-1">শিক্ষার্থীর নাম</label>
+                <input
+                  type="text"
+                  placeholder="নাম (আইডি দিলে স্বয়ংক্রিয় আসবে)"
+                  value={incomeForm.studentName || ''}
+                  onChange={(e) => setIncomeForm({ ...incomeForm, studentName: e.target.value })}
+                  className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-650 block mb-1">ক্লাসের নাম</label>
+                <input
+                  type="text"
+                  placeholder="শ্রেণী (আইডি দিলে স্বয়ংক্রিয় আসবে)"
+                  value={incomeForm.className || ''}
+                  onChange={(e) => setIncomeForm({ ...incomeForm, className: e.target.value })}
+                  className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700"
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          <div className="sm:col-span-2">
+            <label className="text-xs font-bold text-slate-650 block mb-1">তারিখ</label>
+            <input
+              type="date"
+              value={incomeForm.date}
+              onChange={(e) => {
+                const selectedDate = e.target.value;
+                const parts = selectedDate.split('-');
+                setIncomeForm({
+                  ...incomeForm,
+                  date: selectedDate,
+                  month: parts.length >= 2 ? `${parts[0]}-${parts[1]}` : incomeForm.month
+                });
+              }}
+              className="px-3 py-2.5 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Income Sector Fields */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-t border-slate-100 pt-4 gap-2">
+            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">আয়ের খাতসমূহ ও টাকার পরিমাণ</h3>
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="flex items-center gap-1 text-[11px] font-black text-emerald-800 hover:text-emerald-950 transition-colors shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" /> খাত যোগ করুন
+            </button>
+          </div>
+
+          {incomeForm.items.map((item, idx) => (
+            <div key={idx} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <div className="flex-1">
+                <select
+                  value={item.head}
+                  onChange={(e) => handleRowChange(idx, 'head', e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700"
+                >
+                  {mergedIncomeHeads.map(head => (
+                    <option key={head} value={head}>{head}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-36 md:w-48">
+                <input
+                  type="number"
+                  placeholder="টাকা (৳)"
+                  min="0"
+                  value={item.amount}
+                  onChange={(e) => handleRowChange(idx, 'amount', e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700 text-right"
+                  required
+                />
+
+                {incomeForm.items.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveRow(idx)}
+                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors shrink-0 sm:hidden"
+                    title="মুছে ফেলুন"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {incomeForm.items.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveRow(idx)}
+                  className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors shrink-0 hidden sm:block"
+                  title="মুছে ফেলুন"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Calculations and Description */}
+        <div className="border-t border-slate-100 pt-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 p-4 rounded-xl">
+          <div className="flex-1">
+            <label className="text-xs font-bold text-slate-650 block mb-1">মন্তব্য/বিবরণ (ঐচ্ছিক)</label>
+            <textarea
+              placeholder="লেনদেন সংক্রান্ত অতিরিক্ত তথ্য"
+              value={incomeForm.description}
+              onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
+              className="px-3 py-2 border border-slate-200 rounded-xl text-xs w-full focus:outline-none focus:border-emerald-700 h-16 resize-none"
+            />
+          </div>
+
+          <div className="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-600 whitespace-nowrap">ছাড় / Discount (৳):</label>
+              <input
+                type="number"
+                placeholder="যেমন: ১০০"
+                value={incomeForm.discount || ''}
+                onChange={(e) => setIncomeForm({ ...incomeForm, discount: e.target.value })}
+                className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs w-36 text-right focus:outline-none focus:border-emerald-700"
+                min="0"
+              />
+            </div>
+            
+            <div className="text-left md:text-right whitespace-nowrap min-w-[150px]">
+              <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">সর্বমোট জমা (৳)</p>
+              <p className="text-2xl sm:text-3xl font-black text-emerald-900 mt-1">
+                ৳ {formatBanglaNumber(finalTotal.toLocaleString('bn-BD'))}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className="w-full sm:w-auto px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-650 hover:bg-slate-100 transition-colors order-2 sm:order-1"
+          >
+            বাতিল করুন
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full sm:w-auto px-6 py-2.5 bg-emerald-800 hover:bg-emerald-950 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors order-1 sm:order-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'সংরক্ষণ করুন'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* --- কাস্টম ফন্ট ডিক্লেয়ারেশন --- */
+@font-face {
+  font-family: "ShaldaMJ";
+  src: url("/ShaldaMJ.ttf") format("truetype"),
+       url("/shaldaMJ.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BritanicBold";
+  src: url("/britanic.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-shalda {
+  font-family: "ShaldaMJ", sans-serif;
+}
+
+.font-britanic {
+  font-family: "BritanicBold", sans-serif;
+}
+
+/* --- Notice Board Marquee Animation --- */
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes ticker-scroll {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: ticker-scroll 14s linear infinite;
+  will-change: transform;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* --- Continuous Loop Marquee Animation (Right to Left) --- */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - 1.5rem));
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 40s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee:hover,
+.group-marquee:hover .animate-marquee {
+  animation-play-state: paused;
+}
+
+/* --- Continuous Loop Marquee Animation (Left to Right / Reverse) --- */
+@keyframes marquee-scroll-reverse {
+  from {
+    transform: translateX(calc(-100% - 1.5rem));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-marquee-reverse {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll-reverse 40s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-reverse:hover,
+.group-marquee:hover .animate-marquee-reverse {
+  animation-play-state: paused;
+}
+
+/* কাস্টম রিমি কুফিক ক্লাস */
+.kufi-custom {
+  font-family: var(--font-reem-kufi), sans-serif;
+
+  /* ফন্টের সব অল্টারনেট/কাস্টম শেপ অফ করে ডিফল্ট স্ট্যান্ডার্ড আরবি শেপ চালু করা হলো */
+  font-feature-settings: normal;
+  font-variant-alternates: normal;
+}
+
+/* পুরো ওয়েবসাইটের ডিফল্ট ফন্ট আকর্ষণীয় করার জন্য */
+body {
+  font-family: var(--font-hind-siliguri), sans-serif;
+}
