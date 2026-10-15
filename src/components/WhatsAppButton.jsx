@@ -1,14 +1,13 @@
 // components/WhatsAppButton.jsx
 "use client";
 
-import React from 'react';
+import React from "react";
 
 export default function WhatsAppButton() {
-
-  const phoneNumber = "8801992757431";
+  const phoneNumber = "8801608018404";
 
   const message = encodeURIComponent(
-    "আস-সালামু আলাইকুম, আমি আল-মদিনা ইসলামিক একাডেমি এর অনলাইন পোর্টাল থেকে যোগাযোগ করছি। কিছু তথ্য জানতে চাচ্ছিলাম।"
+    "আস-সালামু আলাইকুম, আমি আল-মদিনা ইসলামিক একাডেমি এর অনলাইন পোর্টাল থেকে যোগাযোগ করছি। কিছু তথ্য জানতে চাচ্ছিলাম।",
   );
 
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;

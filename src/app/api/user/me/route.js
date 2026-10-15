@@ -1,6 +1,8 @@
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+
+const SERVER_BASE =
+  process.env.NEXT_PUBLIC_SERVER_API || "http://localhost:5000";
 
 export const dynamic = "force-dynamic";
 
@@ -11,50 +13,50 @@ export async function GET(request) {
     });
 
     if (!session || !session.user) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, message: "Unauthorized" },
         { status: 401 }
       );
     }
 
     const userId = session.user.id || session.user._id;
-    const db = await getDb();
+    const email = session.user.email;
 
-    // Query user collection directly for the latest live permissions and role
-    const filter = ObjectId.isValid(userId)
-      ? { $or: [{ _id: new ObjectId(userId) }, { _id: String(userId) }, { id: String(userId) }] }
-      : { $or: [{ _id: String(userId) }, { id: String(userId) }] };
+    // Fetch live user permissions and role from backend Express server
+    const targetUrl = `${SERVER_BASE}/api/user/me?email=${encodeURIComponent(
+      email
+    )}&id=${encodeURIComponent(userId)}`;
 
-    let dbUser = await db.collection("user").findOne(filter).catch(() => null);
-    if (!dbUser) {
-      dbUser = await db.collection("users").findOne(filter).catch(() => null);
+    const res = await fetch(targetUrl, {
+      headers: {
+        "x-user-email": email,
+        "x-user-id": String(userId),
+      },
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return NextResponse.json(data);
     }
 
-    const role = (dbUser?.role || session.user.role || "student").toLowerCase();
-    const permissions = Array.isArray(dbUser?.permissions)
-      ? dbUser.permissions
-      : Array.isArray(session.user.permissions)
-      ? session.user.permissions
-      : [];
-    const isBanned = Boolean(dbUser?.isBanned || dbUser?.status === "banned" || session.user.isBanned);
-    const status = isBanned ? "banned" : "active";
-
-    return Response.json({
+    // Fallback to session user if server endpoint is temporarily unreachable
+    return NextResponse.json({
       success: true,
       user: {
         id: String(userId),
-        name: dbUser?.name || session.user.name || "User",
-        email: dbUser?.email || session.user.email || "",
-        image: dbUser?.image || session.user.image || "",
-        role,
-        permissions,
-        isBanned,
-        status,
+        name: session.user.name || "User",
+        email: session.user.email || "",
+        image: session.user.image || "",
+        role: (session.user.role || "student").toLowerCase(),
+        permissions: session.user.permissions || [],
+        isBanned: Boolean(session.user.isBanned),
+        status: session.user.isBanned ? "banned" : "active",
       },
     });
   } catch (error) {
     console.error("GET /api/user/me error:", error);
-    return Response.json(
+    return NextResponse.json(
       { success: false, message: "Internal server error", error: error.message },
       { status: 500 }
     );

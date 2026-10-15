@@ -14,6 +14,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import PersonDetailsModal from "@/components/public/shared/PersonDetailsModal";
+import { api } from "@/lib/api";
 
 export default function StaffsPage() {
   const [staffList, setStaffList] = useState([]);
@@ -28,9 +29,7 @@ export default function StaffsPage() {
     async function fetchStaff() {
       try {
         setLoading(true);
-        const res = await fetch("/api/staff", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch staff");
-        const json = await res.json();
+        const json = await api.staff.getAll();
         if (isMounted && json?.success && Array.isArray(json?.data)) {
           setStaffList(json.data);
         }

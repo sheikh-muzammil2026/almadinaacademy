@@ -7,6 +7,7 @@ import FatwaSourcesBadge from "@/components/fatwa/FatwaSourcesBadge";
 import FatwaDisclaimer from "@/components/fatwa/FatwaDisclaimer";
 import FatwaAnswerCard from "@/components/fatwa/FatwaAnswerCard";
 import { BookOpen, Sparkles, HelpCircle } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function FatwaPage() {
   const [data, setData] = useState(null);
@@ -21,15 +22,9 @@ export default function FatwaPage() {
     setData(null);
 
     try {
-      const res = await fetch("/api/fatwa-assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: queryText }),
-      });
+      const json = await api.ai.askFatwa(queryText);
 
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setError(
           json.error ||
             "ফতোয়া অনুসন্ধানে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।",

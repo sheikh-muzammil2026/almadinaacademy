@@ -53,7 +53,7 @@ export default function SeatPlanMap() {
       try {
         setLoading(true);
         setError(null);
-        const serverApi = process.env.NEXT_PUBLIC_SERVER_API || 'http://localhost:8000';
+        const serverApi = process.env.NEXT_PUBLIC_SERVER_API || 'http://localhost:5000';
         const url = `${serverApi}/api/seat-plan?hallNo=${selectedHall}&semester=${encodeURIComponent(selectedSemester)}`;
         console.log("Fetching seat plan from URL:", url);
 
